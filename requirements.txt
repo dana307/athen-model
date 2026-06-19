@@ -1,0 +1,28 @@
+# Athena — core dependencies
+# Data
+pandas>=2.0
+numpy>=1.24
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=4.9
+yfinance>=0.2.40
+
+# Financial computation
+scipy>=1.11
+
+# Visualization
+matplotlib>=3.7
+plotly>=5.18
+
+# Dashboard
+streamlit>=1.30
+
+# Excel
+openpyxl>=3.1
+
+# Report generation
+python-docx>=1.1
+reportlab>=4.0
+
+# Testing
+pytest>=8.0
