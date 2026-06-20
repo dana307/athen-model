@@ -4,9 +4,9 @@
 
 **An institutional-grade equity research & valuation platform for Indian equities.**
 
-Athena turns a single ticker into a full research workflow — financial data
+Athena turns a single ticker into a full research workflow - financial data
 ingestion, statement normalization, forecasting, DCF & comparable valuation,
-Monte Carlo simulation, risk scoring, and automated reports — from one command:
+Monte Carlo simulation, risk scoring, and automated reports, from one command:
 
 ```bash
 python main.py --ticker RELIANCE
