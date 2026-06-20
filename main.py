@@ -29,6 +29,7 @@ from valuation import (
 )
 from risk import assess as assess_risk
 from reports import generate_report
+from portfolio import Portfolio, build_holding
 
 log = get_logger("athena")
 
@@ -175,6 +176,46 @@ def _load_peer(ticker: str, source: str):
     return df, price
 
 
+def _print_portfolio(a, holdings_spec: str) -> None:
+    print(f"\n=== Portfolio analytics ({len(a.holdings)} holdings) ===")
+    disp = a.table.copy()
+    disp["weight"] = (disp["weight"] * 100).round(1)
+    disp["valuation_gap"] = (disp["valuation_gap"] * 100).round(1)
+    disp["exp_return"] = (disp["exp_return"] * 100).round(1)
+    disp["mkt_value"] = (disp["mkt_value"] / 1e7).round(2)
+    disp = disp.rename(columns={"weight": "weight%", "valuation_gap": "gap%",
+                                "exp_return": "exp.ret%", "mkt_value": "MV(cr)"})
+    print(disp[["sector", "qty", "mkt_price", "intrinsic", "weight%",
+                "MV(cr)", "gap%"]].to_string())
+    print("\nSector allocation")
+    for s, w in sorted(a.sector_allocation.items(), key=lambda x: -x[1]):
+        print(f"  {s:<18}{w*100:5.1f}%")
+    print("\nAggregate")
+    print(f"  Market value          : ₹{a.total_market_value/1e7:,.1f} cr")
+    print(f"  Intrinsic value       : ₹{a.total_intrinsic_value/1e7:,.1f} cr")
+    print(f"  Portfolio upside      : {a.portfolio_upside:+.1%}")
+    print(f"  Weighted expected ret : {a.weighted_expected_return:+.1%}")
+    print(f"  Concentration (HHI)   : {a.hhi:.2f} ({a.concentration_level})")
+    print(f"  Effective # holdings  : {a.effective_holdings:.1f}")
+    print(f"  Top / top-3 weight    : {a.top_weight*100:.0f}% / {a.top3_weight*100:.0f}%")
+    print()
+
+
+def _parse_holdings(spec: str):
+    """Parse 'TICKER:shares:sector,TICKER:shares' into tuples."""
+    out = []
+    for item in spec.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        parts = [p.strip() for p in item.split(":")]
+        ticker = parts[0]
+        qty = float(parts[1]) if len(parts) > 1 else 1.0
+        sector = parts[2] if len(parts) > 2 else "Unknown"
+        out.append((ticker, qty, sector))
+    return out
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="athena",
@@ -236,6 +277,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="generate the full DOCX/PDF research report")
     p.add_argument("--formats", default="docx,pdf",
                    help="report formats, comma-separated (docx,pdf)")
+    # Phase 12 portfolio
+    p.add_argument("--portfolio", action="store_true",
+                   help="portfolio analytics across multiple holdings")
+    p.add_argument("--holdings", default="",
+                   help="holdings spec: TICKER:shares:sector,... "
+                        "e.g. RELIANCE:100:Energy,TCS:50:IT")
     return p
 
 
@@ -339,6 +386,28 @@ def main(argv: list[str] | None = None) -> int:
         for fmt, pth in written.items():
             print(f"  {fmt.upper()} report → {pth}")
         log.info("Phase 10 report complete for %s.", args.ticker.upper())
+
+    if args.portfolio:
+        specs = _parse_holdings(args.holdings)
+        if not specs:
+            log.error("--portfolio needs --holdings TICKER:shares:sector,...")
+            return 1
+        port = Portfolio()
+        for tk, qty, sector in specs:
+            try:
+                hf, hp = _load_peer(tk, args.source)
+                if not hp:
+                    log.warning("no price for %s — skipping", tk)
+                    continue
+                port.add(build_holding(tk, hf, market_price=hp, quantity=qty,
+                                       sector=sector, years=args.years))
+            except LoaderError as e:
+                log.warning("could not load %s: %s", tk, e)
+        if not port.holdings:
+            log.error("no usable holdings loaded.")
+            return 1
+        _print_portfolio(port.analyze(), args.holdings)
+        log.info("Phase 12 portfolio analytics complete.")
 
     if args.comps:
         peer_tickers = [t.strip() for t in args.peers.split(",") if t.strip()]

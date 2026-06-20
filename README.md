@@ -10,7 +10,7 @@ Monte Carlo simulation, risk scoring, and automated reports — from one command
 python main.py --ticker RELIANCE
 ```
 
-> Status: **Phases 1–11 complete** (ingestion → normalization → forecasting → WACC → FCFF DCF → comparables → Monte Carlo → sensitivity → risk → automated DOCX/PDF report → interactive dashboard). Phases 12–15 in progress per the roadmap.
+> Status: **Phases 1–12 complete** (ingestion → normalization → forecasting → WACC → FCFF DCF → comparables → Monte Carlo → sensitivity → risk → automated DOCX/PDF report → interactive dashboard → portfolio analytics). Phases 13–15 in progress per the roadmap.
 
 ---
 
@@ -46,6 +46,7 @@ df = get_loader("yfinance", "RELIANCE").load()   # → canonical fundamentals
 | Valuation    | `valuation/`          | WACC, DCF, comparables, Monte Carlo, sensitivity |
 | Risk         | `risk/`               | Distress-signal checks → Low/Med/High rating     |
 | Reports      | `reports/`            | Builder + DOCX/PDF renderers + charts            |
+| Portfolio    | `portfolio/`          | Multi-holding analytics (allocation, HHI, gaps)  |
 | Dashboard    | `dashboard/`          | Streamlit app with live assumption sliders       |
 | CLI          | `main.py`             | Orchestrates the pipeline                        |
 
@@ -221,6 +222,27 @@ tabs: Financials, Forecast, DCF, Monte Carlo, Sensitivity heatmap, and Risk.
 Data loads are cached, so moving a slider recomputes the valuation without
 re-fetching.
 
+### Portfolio analytics (Phase 12)
+
+Aggregates multiple holdings into portfolio-level intrinsic value, sector
+allocation, concentration risk (HHI / effective number of holdings / top-N
+weight), weighted expected return, and weighted valuation gap.
+
+```bash
+python main.py --ticker RELIANCE --portfolio \
+    --holdings RELIANCE:100:Energy,TCS:50:IT,INFY:80:IT,HDFCBANK:60:Financials
+```
+
+```python
+from portfolio import Portfolio, build_holding
+p = Portfolio([
+    build_holding("RELIANCE", rel_df, market_price=2900, quantity=100, sector="Energy"),
+    build_holding("TCS", tcs_df, market_price=3850, quantity=50, sector="IT"),
+])
+a = p.analyze()
+a.portfolio_upside, a.hhi, a.sector_allocation
+```
+
 ## Testing
 
 Phase 1 ships with an offline test suite (`tests/`) that validates the schema
@@ -240,7 +262,7 @@ SQLite round-trip using a yfinance-shaped fixture (no network required).
 9. ✅ **Risk engine**
 10. ✅ **Automated report generation (DOCX / PDF)**
 11. ✅ **Interactive Streamlit dashboard**
-12. Portfolio analytics
+12. ✅ **Portfolio analytics**
 13. Portfolio optimization
 14. Macroeconomic stress testing
 15. Actuarial layer *(stretch)*
