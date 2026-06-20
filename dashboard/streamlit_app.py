@@ -59,17 +59,26 @@ def main():
         st.header("Company")
         ticker = st.text_input("Ticker", value="RELIANCE").strip().upper()
         source = st.selectbox("Source", available_sources(), index=0)
+        demo = st.checkbox("Use demo data (no network)", value=False,
+                           help="Loads a bundled sample so the app works "
+                                "even when live data is unavailable.")
         go_btn = st.button("Load", type="primary")
 
     if not ticker:
         st.info("Enter a ticker in the sidebar and press Load.")
         return
 
-    try:
-        df, md = load_company(ticker, source)
-    except Exception as e:
-        st.error(f"Could not load {ticker}: {e}")
-        return
+    from dashboard.sample_data import get_sample
+    if demo:
+        df, md = get_sample(ticker)
+    else:
+        try:
+            df, md = load_company(ticker, source)
+        except Exception as e:
+            st.warning(f"Live data for {ticker} is unavailable ({e}). "
+                       "Showing bundled demo data instead — tick "
+                       "**Use demo data** to silence this, or try another ticker.")
+            df, md = get_sample(ticker)
 
     metrics = add_derived_metrics(df)
     profile = historical_drivers(df)

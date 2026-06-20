@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Athena — Equity Research &amp; Valuation Platform</title>
+<meta name="description" content="An open-source, institutional-grade equity research and valuation platform for Indian equities: DCF, comparables, Monte Carlo, risk scoring, portfolio optimization and more." />
+<style>
+  :root{
+    --bg:#0E1117; --panel:#161B26; --panel2:#1D2433; --line:#2A3240;
+    --txt:#E6E9EF; --muted:#9AA4B2; --accent:#4C78A8; --accent2:#54A24B;
+    --warn:#E45756; --gold:#E0B341;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 70% -10%,#1a2336 0%,var(--bg) 55%);
+    color:var(--txt); line-height:1.6;
+  }
+  a{color:var(--accent); text-decoration:none}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 22px}
+  /* hero */
+  header{padding:64px 0 28px; text-align:center}
+  .logo{font-size:13px; letter-spacing:.32em; color:var(--muted); text-transform:uppercase}
+  h1{font-size:clamp(44px,8vw,86px); margin:.08em 0 .12em; letter-spacing:-.02em;
+     background:linear-gradient(90deg,#cdd7e6,#7fa8d8 60%,#54A24B);
+     -webkit-background-clip:text; background-clip:text; color:transparent}
+  .tag{font-size:clamp(16px,2.4vw,21px); color:var(--muted); max-width:680px; margin:0 auto}
+  .badges{margin:20px 0 6px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap}
+  .badge{font-size:12.5px; color:var(--muted); background:var(--panel); border:1px solid var(--line);
+         padding:6px 12px; border-radius:999px}
+  .badge b{color:var(--txt)}
+  .cta{display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin:30px 0 8px}
+  .btn{display:inline-block; padding:14px 26px; border-radius:12px; font-weight:600; font-size:15px;
+       border:1px solid transparent; transition:transform .08s ease, background .2s}
+  .btn:hover{transform:translateY(-2px)}
+  .btn-primary{background:linear-gradient(180deg,#5b8bc4,#3f6da0); color:#fff}
+  .btn-ghost{background:var(--panel); border-color:var(--line); color:var(--txt)}
+  .note{font-size:12.5px; color:var(--muted); margin-top:10px}
+  /* sections */
+  section{padding:46px 0}
+  h2{font-size:13px; letter-spacing:.22em; text-transform:uppercase; color:var(--muted);
+     border-top:1px solid var(--line); padding-top:30px; margin:0 0 22px}
+  /* pipeline */
+  .pipe{display:flex; gap:10px; flex-wrap:wrap; align-items:stretch}
+  .step{flex:1 1 120px; background:var(--panel); border:1px solid var(--line); border-radius:12px;
+        padding:14px 12px; text-align:center; min-width:120px}
+  .step .k{font-size:12px; color:var(--muted)}
+  .step .v{font-weight:600; margin-top:3px}
+  .arrow{align-self:center; color:var(--accent); font-size:20px}
+  /* feature grid */
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:16px}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px}
+  .card h3{margin:.1em 0 .4em; font-size:16px}
+  .card p{margin:0; color:var(--muted); font-size:14px}
+  .card .ic{font-size:22px}
+  /* gallery */
+  .gallery{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px}
+  .shot{background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden}
+  .shot img{width:100%; display:block; background:#fff}
+  .shot .cap{padding:10px 14px; font-size:13px; color:var(--muted)}
+  /* stack */
+  .stack{display:flex; gap:10px; flex-wrap:wrap}
+  .chip{background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:13px; color:var(--muted)}
+  /* code */
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  pre{background:#0b0e14; border:1px solid var(--line); border-radius:12px; padding:16px 18px;
+      overflow:auto; font-size:13.5px; color:#cdd7e6}
+  footer{padding:40px 0 60px; border-top:1px solid var(--line); color:var(--muted); font-size:13px}
+  .disc{background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--gold);
+        border-radius:10px; padding:14px 16px; font-size:13px; color:var(--muted); margin-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">🏛 Athena</div>
+    <h1>Athena</h1>
+    <p class="tag">An open-source, institutional-grade equity research &amp; valuation
+       platform for Indian equities — from a ticker to a full DCF, peer comps,
+       Monte Carlo, risk scoring and a research report.</p>
+    <div class="badges">
+      <span class="badge"><b>15</b> phases</span>
+      <span class="badge"><b>121</b> passing tests</span>
+      <span class="badge"><b>CI</b> on every push</span>
+      <span class="badge"><b>MIT</b> licensed</span>
+    </div>
+    <div class="cta">
+      <!-- ▼▼▼  REPLACE the href below with your Streamlit URL after deploying  ▼▼▼ -->
+      <a class="btn btn-primary" id="launch" href="https://YOUR-APP.streamlit.app" target="_blank" rel="noopener">▶ Launch live app</a>
+      <a class="btn btn-ghost" href="https://github.com/dana307/athen-model" target="_blank" rel="noopener">View source on GitHub</a>
+    </div>
+    <p class="note">Runs entirely in your browser — no installation. The live app
+       streams real data, with a built-in demo mode as a fallback.</p>
+  </header>
+
+  <section>
+    <h2>From a ticker to a thesis</h2>
+    <div class="pipe">
+      <div class="step"><div class="k">Input</div><div class="v">Ticker</div></div>
+      <div class="arrow">→</div>
+      <div class="step"><div class="k">Phase 1–2</div><div class="v">Data &amp; normalize</div></div>
+      <div class="arrow">→</div>
+      <div class="step"><div class="k">Phase 3</div><div class="v">Forecast FCFF</div></div>
+      <div class="arrow">→</div>
+      <div class="step"><div class="k">Phase 4–5</div><div class="v">WACC &amp; DCF</div></div>
+      <div class="arrow">→</div>
+      <div class="step"><div class="k">Phase 10</div><div class="v">Report</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What it does</h2>
+    <div class="grid">
+      <div class="card"><div class="ic">📊</div><h3>FCFF DCF valuation</h3><p>Forecasts the operating model to free cash flow, builds the WACC from CAPM, and discounts to an intrinsic per-share value.</p></div>
+      <div class="card"><div class="ic">⚖️</div><h3>Comparable companies</h3><p>EV/Sales, EV/EBITDA, P/E, PEG, ROE, ROCE and Debt/Equity vs peers, with a median-multiple implied value.</p></div>
+      <div class="card"><div class="ic">🎲</div><h3>Monte Carlo</h3><p>10,000 simulations over uncertain growth, margin and WACC give a full distribution of value and P(undervalued).</p></div>
+      <div class="card"><div class="ic">🔥</div><h3>Sensitivity heatmaps</h3><p>The classic WACC × terminal-growth grid, so you can see how fragile or robust the thesis really is.</p></div>
+      <div class="card"><div class="ic">🚦</div><h3>Risk engine</h3><p>Auto-detects leverage, margin erosion, negative FCF, receivables/inventory build-up and debt spikes — Low / Med / High.</p></div>
+      <div class="card"><div class="ic">📄</div><h3>Automated reports</h3><p>One command produces an institutional DOCX/PDF research note with charts, scenarios and a recommendation.</p></div>
+      <div class="card"><div class="ic">📈</div><h3>Portfolio analytics &amp; optimization</h3><p>Allocation, concentration (HHI), and mean-variance / max-Sharpe / risk-parity / Black-Litterman optimization.</p></div>
+      <div class="card"><div class="ic">🌍</div><h3>Macro stress testing</h3><p>Oil, rate, inflation, INR and recession shocks propagated through the valuation, with sector-specific transmission.</p></div>
+      <div class="card"><div class="ic">🎓</div><h3>Actuarial layer</h3><p>Merton default probability, Vasicek stochastic discount rates, scenario-weighted value and Bayesian updating.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>A look inside</h2>
+    <div class="gallery">
+      <div class="shot"><img src="assets/RELIANCE_revenue.png" alt="Revenue and forecast"><div class="cap">Revenue history &amp; forecast with EBITDA-margin overlay</div></div>
+      <div class="shot"><img src="assets/RELIANCE_mc.png" alt="Monte Carlo distribution"><div class="cap">Monte Carlo intrinsic-value distribution</div></div>
+      <div class="shot"><img src="assets/RELIANCE_sensitivity.png" alt="Sensitivity heatmap"><div class="cap">WACC × terminal-growth sensitivity heatmap</div></div>
+      <div class="shot"><img src="assets/RELIANCE_scenarios.png" alt="Bull base bear"><div class="cap">Bull / base / bear scenario valuation</div></div>
+    </div>
+    <p class="note">Charts shown use illustrative demo data.</p>
+  </section>
+
+  <section>
+    <h2>Try it from the command line</h2>
+    <pre><code>pip install -r requirements.txt
+
+python main.py --ticker RELIANCE --valuation        # DCF intrinsic value
+python main.py --ticker RELIANCE --montecarlo        # 10k-sim distribution
+python main.py --ticker RELIANCE --report --peers TCS,INFY   # DOCX + PDF note
+streamlit run dashboard/streamlit_app.py             # interactive dashboard</code></pre>
+  </section>
+
+  <section>
+    <h2>Built with</h2>
+    <div class="stack">
+      <span class="chip">Python</span><span class="chip">pandas / NumPy</span>
+      <span class="chip">SciPy</span><span class="chip">Streamlit</span>
+      <span class="chip">Plotly / Matplotlib</span><span class="chip">python-docx</span>
+      <span class="chip">ReportLab</span><span class="chip">SQLite</span>
+      <span class="chip">yfinance</span><span class="chip">BeautifulSoup</span>
+      <span class="chip">pytest</span><span class="chip">GitHub Actions</span>
+    </div>
+  </section>
+
+  <footer>
+    <div>Athena · open-source equity research platform ·
+      <a href="https://github.com/dana307/athen-model" target="_blank" rel="noopener">GitHub</a></div>
+    <div class="disc"><b>Disclaimer:</b> Athena is a research and educational project.
+      Nothing it produces is investment advice. Model outputs depend on
+      assumptions and data quality and may be inaccurate.</div>
+  </footer>
+
+</div>
+</body>
+</html>

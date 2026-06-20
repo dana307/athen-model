@@ -328,6 +328,20 @@ dist = stochastic_dcf(forecast["fcff"].values, net_debt=nd, shares_outstanding=s
 post = normal_update(prior_mean=0.12, prior_std=0.05, observations=realized, obs_std=0.03)
 ```
 
+## Live demo & deployment
+
+Athena ships ready to go online for free, with **no install required by visitors**:
+
+- **Interactive app** — the Streamlit dashboard deploys to **Streamlit Community
+  Cloud** straight from this repo (entrypoint `dashboard/streamlit_app.py`). It
+  streams live data with an automatic offline **demo-data fallback**, so the
+  public app always works.
+- **Landing page** — `docs/index.html` is a static showcase for **GitHub Pages**
+  (Settings → Pages → branch `main`, folder `/docs`) with a *Launch live app*
+  button.
+
+Step-by-step instructions are in **[DEPLOY.md](DEPLOY.md)**.
+
 ## Testing
 
 **111 offline tests** (`tests/test_phase1.py … test_phase15.py`) cover every
