@@ -29,7 +29,11 @@ from valuation import (
 )
 from risk import assess as assess_risk
 from reports import generate_report
-from portfolio import Portfolio, build_holding
+from portfolio import (
+    Portfolio, build_holding,
+    min_variance, max_sharpe, mean_variance, risk_parity, black_litterman,
+    returns_from_prices, annualized_inputs,
+)
 
 log = get_logger("athena")
 
@@ -201,6 +205,18 @@ def _print_portfolio(a, holdings_spec: str) -> None:
     print()
 
 
+def _print_optimization(res, method: str) -> None:
+    print(f"\n=== Portfolio optimization — {method} ===")
+    print("Optimal weights")
+    for tk, w in res.weights.sort_values(ascending=False).items():
+        bar = "█" * int(round(w * 30))
+        print(f"  {tk:<12}{w*100:6.1f}%  {bar}")
+    print(f"\n  Expected return : {res.expected_return:+.1%}")
+    print(f"  Volatility      : {res.volatility:.1%}")
+    print(f"  Sharpe ratio    : {res.sharpe:.2f}")
+    print()
+
+
 def _parse_holdings(spec: str):
     """Parse 'TICKER:shares:sector,TICKER:shares' into tuples."""
     out = []
@@ -283,6 +299,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--holdings", default="",
                    help="holdings spec: TICKER:shares:sector,... "
                         "e.g. RELIANCE:100:Energy,TCS:50:IT")
+    # Phase 13 optimization
+    p.add_argument("--optimize", default=None,
+                   choices=["min_variance", "max_sharpe", "mean_variance",
+                            "risk_parity", "black_litterman"],
+                   help="run portfolio optimization over --holdings tickers")
+    p.add_argument("--lookback", default="3y",
+                   help="price history window for optimization (default 3y)")
     return p
 
 
@@ -408,6 +431,36 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         _print_portfolio(port.analyze(), args.holdings)
         log.info("Phase 12 portfolio analytics complete.")
+
+    if args.optimize:
+        specs = _parse_holdings(args.holdings) or [(args.ticker, 1.0, "")]
+        tickers = [s[0] for s in specs]
+        if len(tickers) < 2:
+            log.error("--optimize needs >=2 tickers via --holdings.")
+            return 1
+        from portfolio.optimizer import fetch_price_history
+        try:
+            prices = fetch_price_history(tickers, source=args.source,
+                                         period=args.lookback)
+        except Exception as e:
+            log.error("could not fetch price history: %s", e)
+            return 1
+        mu, cov = annualized_inputs(returns_from_prices(prices))
+        rf = args.rf or 0.0
+        m = args.optimize
+        if m == "min_variance":
+            res = min_variance(cov, mu=mu, rf=rf)
+        elif m == "max_sharpe":
+            res = max_sharpe(mu, cov, rf=rf)
+        elif m == "mean_variance":
+            res = mean_variance(mu, cov, rf=rf)
+        elif m == "risk_parity":
+            res = risk_parity(cov, mu=mu, rf=rf)
+        else:  # black_litterman
+            qty = pd.Series([s[1] for s in specs], index=tickers).reindex(cov.columns).fillna(1.0)
+            res, _ = black_litterman(cov, qty / qty.sum(), rf=rf)
+        _print_optimization(res, m)
+        log.info("Phase 13 optimization complete.")
 
     if args.comps:
         peer_tickers = [t.strip() for t in args.peers.split(",") if t.strip()]

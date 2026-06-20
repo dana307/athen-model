@@ -10,7 +10,7 @@ Monte Carlo simulation, risk scoring, and automated reports — from one command
 python main.py --ticker RELIANCE
 ```
 
-> Status: **Phases 1–12 complete** (ingestion → normalization → forecasting → WACC → FCFF DCF → comparables → Monte Carlo → sensitivity → risk → automated DOCX/PDF report → interactive dashboard → portfolio analytics). Phases 13–15 in progress per the roadmap.
+> Status: **Phases 1–13 complete** (ingestion → normalization → forecasting → WACC → FCFF DCF → comparables → Monte Carlo → sensitivity → risk → automated DOCX/PDF report → interactive dashboard → portfolio analytics → portfolio optimization). Phases 14–15 in progress per the roadmap.
 
 ---
 
@@ -46,7 +46,7 @@ df = get_loader("yfinance", "RELIANCE").load()   # → canonical fundamentals
 | Valuation    | `valuation/`          | WACC, DCF, comparables, Monte Carlo, sensitivity |
 | Risk         | `risk/`               | Distress-signal checks → Low/Med/High rating     |
 | Reports      | `reports/`            | Builder + DOCX/PDF renderers + charts            |
-| Portfolio    | `portfolio/`          | Multi-holding analytics (allocation, HHI, gaps)  |
+| Portfolio    | `portfolio/`          | Multi-holding analytics + mean-variance optimizer |
 | Dashboard    | `dashboard/`          | Streamlit app with live assumption sliders       |
 | CLI          | `main.py`             | Orchestrates the pipeline                        |
 
@@ -243,6 +243,32 @@ a = p.analyze()
 a.portfolio_upside, a.hhi, a.sector_allocation
 ```
 
+### Portfolio optimization (Phase 13)
+
+Mean-variance toolkit on an expected-return vector and covariance matrix
+(estimated from price history): **minimum variance, maximum Sharpe (tangency),
+mean-variance (target return / risk-aversion utility), risk parity** (equal risk
+contribution), an efficient-frontier sweep, and **Black-Litterman** (stretch) —
+which blends market-equilibrium returns with explicit views.
+
+```bash
+python main.py --ticker RELIANCE --optimize max_sharpe --rf 0.07 \
+    --holdings RELIANCE:40,TCS:30,INFY:20,HDFCBANK:10
+```
+
+```python
+from portfolio import max_sharpe, min_variance, risk_parity, annualized_inputs, returns_from_prices
+mu, cov = annualized_inputs(returns_from_prices(price_history))
+res = max_sharpe(mu, cov, rf=0.07)
+res.weights            # optimal allocation
+res.sharpe             # risk-adjusted performance
+```
+
+Solved with scipy SLSQP, long-only by default (optional shorting). Validated
+against closed forms: for a diagonal covariance, min-variance weights ∝ 1/σ²,
+risk-parity ∝ 1/σ, and Black-Litterman with no views returns the market
+portfolio.
+
 ## Testing
 
 Phase 1 ships with an offline test suite (`tests/`) that validates the schema
@@ -263,7 +289,7 @@ SQLite round-trip using a yfinance-shaped fixture (no network required).
 10. ✅ **Automated report generation (DOCX / PDF)**
 11. ✅ **Interactive Streamlit dashboard**
 12. ✅ **Portfolio analytics**
-13. Portfolio optimization
+13. ✅ **Portfolio optimization**
 14. Macroeconomic stress testing
 15. Actuarial layer *(stretch)*
 
