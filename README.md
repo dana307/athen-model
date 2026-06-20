@@ -1,5 +1,7 @@
 # Athena
 
+[![CI](https://github.com/dana307/athen-model/actions/workflows/ci.yml/badge.svg)](https://github.com/dana307/athen-model/actions/workflows/ci.yml)
+
 **An institutional-grade equity research & valuation platform for Indian equities.**
 
 Athena turns a single ticker into a full research workflow — financial data
@@ -10,7 +12,7 @@ Monte Carlo simulation, risk scoring, and automated reports — from one command
 python main.py --ticker RELIANCE
 ```
 
-> Status: **Phases 1–13 complete** (ingestion → normalization → forecasting → WACC → FCFF DCF → comparables → Monte Carlo → sensitivity → risk → automated DOCX/PDF report → interactive dashboard → portfolio analytics → portfolio optimization). Phases 14–15 in progress per the roadmap.
+> Status: **All 15 phases complete** — from data ingestion through the actuarial stretch layer. 121 passing tests, CI on every push.
 
 ---
 
@@ -40,23 +42,32 @@ df = get_loader("yfinance", "RELIANCE").load()   # → canonical fundamentals
 |--------------|-----------------------|-------------------------------------------------|
 | Config       | `config/settings.py`  | Paths, default source, valuation defaults       |
 | Schema       | `utils/schema.py`     | Canonical field contract (single source of truth)|
-| Loaders      | `loaders/`            | Source → canonical DataFrame (`yfinance` now)   |
+| Loaders      | `loaders/`            | Source → canonical DataFrame (`yfinance`, `screener`) |
 | Persistence  | `utils/database.py`   | Tidy SQLite store with upsert + pivot-back       |
 | Forecasting  | `forecasting/`        | Pluggable driver methods → projected FCFF        |
 | Valuation    | `valuation/`          | WACC, DCF, comparables, Monte Carlo, sensitivity |
 | Risk         | `risk/`               | Distress-signal checks → Low/Med/High rating     |
 | Reports      | `reports/`            | Builder + DOCX/PDF renderers + charts            |
 | Portfolio    | `portfolio/`          | Multi-holding analytics + mean-variance optimizer |
+| Macro        | `macro/`              | Scenario shocks propagated through the valuation |
+| Actuarial    | `actuarial/`          | Merton PD, Vasicek rates, Bayesian updating      |
 | Dashboard    | `dashboard/`          | Streamlit app with live assumption sliders       |
 | CLI          | `main.py`             | Orchestrates the pipeline                        |
 
 ## Data sources
 
 - **yfinance** (default) — free, reliable, uses NSE tickers (`RELIANCE.NS`).
-- **screener.in** (planned) — richer Indian fundamentals; drop-in `BaseLoader`.
+- **screener.in** — richer Indian fundamentals with long history; parses the
+  P&L / Balance Sheet tables and maps them onto the canonical schema.
 
-The hybrid strategy: build the entire pipeline on yfinance, then add screener.in
-as a swappable source without touching anything downstream.
+The hybrid strategy delivered: the entire pipeline was built on yfinance, and
+screener.in dropped in as a swappable `BaseLoader` without touching anything
+downstream. Pick a source by name:
+
+```bash
+python main.py --ticker RELIANCE --source yfinance
+python main.py --ticker RELIANCE --source screener
+```
 
 ## Canonical fields
 
@@ -269,11 +280,68 @@ against closed forms: for a diagonal covariance, min-variance weights ∝ 1/σ²
 risk-parity ∝ 1/σ, and Black-Litterman with no views returns the market
 portfolio.
 
+### Macro stress testing (Phase 14)
+
+Propagates macro shocks — **oil shock, rate hike, inflation spike, INR
+depreciation, recession** — through the valuation drivers (growth, margin,
+risk-free rate, ERP, terminal growth), recomputes the WACC, and re-prices the
+stock, with **sector-specific transmission**: an oil shock helps Energy
+producers but hurts IT; INR depreciation helps IT exporters but hurts Energy.
+
+```bash
+python main.py --ticker RELIANCE --stress --sector Energy
+python main.py --ticker TCS --stress --sector IT
+```
+
+```python
+from macro import stress_test
+res = stress_test(fundamentals, market_price=2900, sector="Energy")
+res.table          # intrinsic value & % impact for each scenario
+```
+
+Shocks are stylised and transparent (editable in `macro/scenarios.py`), not
+estimated factor betas.
+
+### Actuarial layer (Phase 15, stretch)
+
+Brings probabilistic/actuarial thinking to equity valuation:
+
+```bash
+python main.py --ticker RELIANCE --actuarial --sector Energy --equity-vol 0.28
+```
+
+- **Default probability** — the **Merton (1974)** structural model: equity is a
+  call option on firm assets, so equity value + volatility back out asset value,
+  asset volatility, distance to default, and `PD = N(−DD)`.
+- **Stochastic discount rates** — the short rate follows a mean-reverting
+  **Vasicek** process; each simulated rate path prices the FCFF differently, so
+  intrinsic value becomes a distribution driven by rate uncertainty.
+- **Scenario-weighted valuation** — probability-weights the Phase 14 stress
+  scenarios into an expected intrinsic value, its dispersion, and P(undervalued).
+- **Bayesian updating** — a Normal-Normal conjugate update revises an assumption
+  (e.g. revenue growth) as evidence arrives, tightening the prior.
+
+```python
+from actuarial import merton_pd, stochastic_dcf, normal_update, scenario_weighted_value
+pd_  = merton_pd(equity_value=mcap, equity_vol=0.28, debt_face=debt)
+dist = stochastic_dcf(forecast["fcff"].values, net_debt=nd, shares_outstanding=sh)
+post = normal_update(prior_mean=0.12, prior_std=0.05, observations=realized, obs_std=0.03)
+```
+
 ## Testing
 
-Phase 1 ships with an offline test suite (`tests/`) that validates the schema
-contract, field mapping, EBITDA/EBIT derivation, validation guards, and the
-SQLite round-trip using a yfinance-shaped fixture (no network required).
+**111 offline tests** (`tests/test_phase1.py … test_phase15.py`) cover every
+phase using yfinance-shaped fixtures — no network required. Beyond plumbing
+checks, the suite pins the numerical engines to known truths: the DCF is
+cross-checked against an independent NumPy computation, a zero-variance Monte
+Carlo reproduces the deterministic DCF, the optimizer is validated against
+closed-form diagonal-covariance solutions, Black-Litterman with no views returns
+the market portfolio, and the Merton/Vasicek/Bayes models are checked for
+monotonicity, mean reversion, and conjugate-update correctness.
+
+```bash
+pytest -q
+```
 
 ## Roadmap
 
@@ -290,8 +358,8 @@ SQLite round-trip using a yfinance-shaped fixture (no network required).
 11. ✅ **Interactive Streamlit dashboard**
 12. ✅ **Portfolio analytics**
 13. ✅ **Portfolio optimization**
-14. Macroeconomic stress testing
-15. Actuarial layer *(stretch)*
+14. ✅ **Macroeconomic stress testing**
+15. ✅ **Actuarial layer** *(stretch)* — Merton PD, Vasicek rates, Bayesian updating
 
 ## License
 

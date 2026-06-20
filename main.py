@@ -34,6 +34,11 @@ from portfolio import (
     min_variance, max_sharpe, mean_variance, risk_parity, black_litterman,
     returns_from_prices, annualized_inputs,
 )
+from macro import stress_test
+from actuarial import (
+    merton_pd, pd_from_leverage, stochastic_dcf, normal_update,
+    scenario_weighted_value,
+)
 
 log = get_logger("athena")
 
@@ -217,6 +222,38 @@ def _print_optimization(res, method: str) -> None:
     print()
 
 
+def _print_stress(res, ticker: str) -> None:
+    print(f"\n=== {ticker.upper()} — macro stress test (sector: {res.sector}) ===")
+    print(f"Base intrinsic: ₹{res.base_intrinsic:,.0f}/share  "
+          f"(market ₹{res.market_price:,.0f})\n")
+    print(f"{'Scenario':<28}{'Intrinsic':>12}{'Impact':>10}")
+    print("-" * 52)
+    for key, s in sorted(res.scenarios.items(), key=lambda x: x[1]["change"]):
+        print(f"{s['name']:<28}{'₹'+format(s['intrinsic'],',.0f'):>12}"
+              f"{s['change']*100:>9.1f}%")
+    print()
+
+
+def _print_actuarial(ticker, credit, sdcf, weighted, posterior) -> None:
+    print(f"\n=== {ticker.upper()} — actuarial layer ===")
+    print("Default probability (Merton structural model)")
+    print(f"  Distance to default : {credit.distance_to_default:.2f}")
+    print(f"  Asset volatility    : {credit.asset_vol:.1%}")
+    print(f"  1-yr default prob   : {credit.default_probability:.2%}")
+    print("\nStochastic-rate DCF (Vasicek short rate)")
+    print(f"  Mean / median       : ₹{sdcf.mean:,.0f} / ₹{sdcf.median:,.0f}")
+    print(f"  90% CI              : ₹{sdcf.p5:,.0f} – ₹{sdcf.p95:,.0f}")
+    if sdcf.current_price:
+        print(f"  P(undervalued)      : {sdcf.prob_undervalued:.0%}")
+    print("\nScenario-weighted valuation")
+    print(f"  Expected intrinsic  : ₹{weighted.expected_value:,.0f} "
+          f"(σ ₹{weighted.std:,.0f})")
+    print(f"  P(undervalued)      : {weighted.prob_undervalued:.0%}")
+    print("\nBayesian growth update")
+    print(f"  {posterior.summary()}")
+    print()
+
+
 def _parse_holdings(spec: str):
     """Parse 'TICKER:shares:sector,TICKER:shares' into tuples."""
     out = []
@@ -306,6 +343,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="run portfolio optimization over --holdings tickers")
     p.add_argument("--lookback", default="3y",
                    help="price history window for optimization (default 3y)")
+    # Phase 14 macro stress
+    p.add_argument("--stress", action="store_true",
+                   help="run macroeconomic stress-test scenarios")
+    p.add_argument("--sector", default="default",
+                   help="sector for stress transmission (Energy, IT, Financials, ...)")
+    # Phase 15 actuarial
+    p.add_argument("--actuarial", action="store_true",
+                   help="run the actuarial layer (Merton PD, stochastic rates, "
+                        "scenario-weighted value, Bayesian update)")
+    p.add_argument("--equity-vol", type=float, default=0.30,
+                   help="equity volatility for the Merton model (default 0.30)")
     return p
 
 
@@ -382,6 +430,58 @@ def main(argv: list[str] | None = None) -> int:
         report = assess_risk(df)
         _print_risk(report, args.ticker)
         log.info("Phase 9 risk assessment complete for %s.", args.ticker.upper())
+
+    if args.stress:
+        md = loader.market_data()
+        price = args.price if args.price is not None else md.get("price")
+        beta = args.beta if args.beta is not None else (md.get("beta") or 1.0)
+        if not price:
+            log.error("no market price available — pass --price <value>.")
+            return 1
+        res = stress_test(df, market_price=price, ticker=args.ticker,
+                          sector=args.sector, beta=beta,
+                          risk_free_rate=args.rf, equity_risk_premium=args.erp,
+                          terminal_growth=args.terminal_growth, years=args.years)
+        _print_stress(res, args.ticker)
+        log.info("Phase 14 stress test complete for %s.", args.ticker.upper())
+
+    if args.actuarial:
+        from utils.metrics import historical_drivers, add_derived_metrics
+        md = loader.market_data()
+        price = args.price if args.price is not None else md.get("price")
+        beta = args.beta if args.beta is not None else (md.get("beta") or 1.0)
+        if not price:
+            log.error("no market price available — pass --price <value>.")
+            return 1
+        profile = historical_drivers(df)
+        shares = float(df.sort_index(ascending=False)["shares_outstanding"].dropna().iloc[0])
+        debt = float(df.sort_index(ascending=False)["debt"].dropna().iloc[0])
+        rf = args.rf or 0.07
+
+        credit = merton_pd(equity_value=price * shares, equity_vol=args.equity_vol,
+                           debt_face=debt, risk_free_rate=rf)
+        val = value_company(df, market_price=price, beta=beta,
+                            forecast_config=ForecastConfig(years=args.years),
+                            risk_free_rate=args.rf, equity_risk_premium=args.erp,
+                            terminal_growth=args.terminal_growth)
+        sdcf = stochastic_dcf(val.forecast["fcff"].values,
+                              net_debt=val.dcf.net_debt,
+                              shares_outstanding=val.dcf.shares_outstanding,
+                              r0=rf, theta=rf,
+                              terminal_growth=val.dcf.terminal_growth,
+                              current_price=price)
+        sres = stress_test(df, market_price=price, ticker=args.ticker,
+                           sector=args.sector, beta=beta, risk_free_rate=args.rf,
+                           equity_risk_premium=args.erp,
+                           terminal_growth=args.terminal_growth, years=args.years)
+        probs = {"base": 0.40, "oil_shock": 0.10, "rate_hike": 0.15,
+                 "inflation_spike": 0.15, "inr_depreciation": 0.10, "recession": 0.10}
+        weighted = scenario_weighted_value(sres, probs)
+        realized = add_derived_metrics(df)["revenue_growth"].dropna().values
+        posterior = normal_update(prior_mean=profile.revenue_cagr, prior_std=0.05,
+                                  observations=realized, obs_std=0.03)
+        _print_actuarial(args.ticker, credit, sdcf, weighted, posterior)
+        log.info("Phase 15 actuarial complete for %s.", args.ticker.upper())
 
     if args.report:
         md = loader.market_data()
